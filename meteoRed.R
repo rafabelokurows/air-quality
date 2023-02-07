@@ -4,14 +4,32 @@ library(jsonlite)
 library(httr)
 
 res = GET("https://services.meteored.com/web/aq/forecast/v4/meteored/1-32080.json")
+res
 
-res$content
-data = rawToChar(res$content)
+weather_list <- jsonlite::read_json("https://services.meteored.com/web/aq/forecast/v4/meteored/1-32080.json")
+weather = tibble(dia = weather_list$data$respuesta$aq$forecast[[1]]$dias)
+
+weather %>% 
+  unnest_wider(dia) %>%
+  select(-utime) %>%
+  pluck("horas",1) %>% enframe() %>% unnest_wider(value) %>% unnest_wider(contaminantes) %>% 
+  map_dfr()
+  pluck("pm2p5",c("concentracion"))%>% 
+  hoist("pm10",c("concentracion")) %>% View()
 
 
+  
+  unnest_longer(horas) %>% unnest_longer(horas)   %>% hoist(contaminante)
 
-data = fromJSON(rawToChar(res$content))
+weather_list$data$respuesta$aq$forecast[[1]]$dias[[1]]$horas[[1]]$contaminantes$pm10
 
-data$data$respuesta$aq$tipo
-data$data$respuesta$aq$forecast$temporalidad
-data$data$respuesta$aq$forecast$dias[[1]] %>% str()
+str(weather_list$data$respuesta$aq$forecast[[1]]$dias,max.level=2)
+rrapply(
+  weather_list$data$respuesta$aq$forecast[[1]]$dias,
+  f = \(x) x,
+  classes = "numeric",
+  how = "melt"
+) |>
+  filter(!L2 %in% c("utime","dominante")) %>% 
+  filter(!L4 %in% c("utime","dominante")) %>% select(-c(L4,L2)) %>% 
+  group_by(L1,L3,L5) %>% View()
